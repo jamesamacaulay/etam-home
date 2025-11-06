@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QUT EdTech Links • Dashboard</title>
+  <meta name="description" content="Single‑file, dark‑mode dashboard for vendor links, roadmaps, and quick actions. Supports search, filters, tags, WYSIWYG notes, and persistence (Local, GitHub Gist/Repo)." />
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #151925;
+      --surface-2: #1a1f2e;
+      --card: #0f1524;
+      --muted: #9aa4b2;
+      --text: #e7e9ee;
+      --text-soft: #ccd2dc;
+      --danger: #ff4d4f;
+      --ok: #2ecc71;
+      --warn: #f1c40f;
+      --accent: #005eb8; /* QUT-ish blue */
+      --accent-2: #2e9fff;
+      --ring: rgba(46, 159, 255, .35);
+      --shadow: 0 4px 18px rgba(0,0,0,.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1000px 600px at 15% -10%, #142036 20%, transparent 60%) ,
+                  radial-gradient(1000px 600px at 120% -50%, #0e213d 10%, transparent 60%),
+                  var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Layout */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(6px);
+      background: linear-gradient(to bottom, rgba(10,13,20,.8), rgba(10,13,20,.35));
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 14px 18px; }
+    .bar { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; }
+
+    .brand { display:flex; gap:10px; align-items:center; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 8px 24px var(--ring);
+      display:grid; place-items:center; font-weight:700; letter-spacing: .4px;
+    }
+    .brand h1 { font-size: 18px; margin: 0; font-weight: 700; }
+    .brand small { display:block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .search {
+      display:flex; gap:10px; align-items:center; background: var(--surface); border: 1px solid rgba(255,255,255,.06);
+      border-radius: 999px; padding: 8px 12px; box-shadow: var(--shadow);
+    }
+    .search input { flex:1; background: transparent; border: 0; outline: none; color: var(--text); font-size: 15px; }
+    .search .chip { background: var(--surface-2); color: var(--text-soft); border:1px solid rgba(255,255,255,.06);
+      padding: 6px 10px; border-radius: 999px; font-size:12px; cursor: pointer; }
+
+    .btn { cursor: pointer; border:1px solid rgba(255,255,255,.08); color: var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      padding: 8px 12px; border-radius: 12px; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { border-color: rgba(255,255,255,.18); }
+
+    .grid { max-width: 1200px; margin: 18px auto; padding: 0 18px; display:grid; grid-template-columns: 260px 1fr; gap: 18px; }
+
+    /* Sidebar */
+    aside { position: sticky; top: 66px; align-self: start; background: rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+    aside h3 { margin: 6px 0 10px; font-size: 13px; color: var(--muted); letter-spacing:.4px; text-transform: uppercase; }
+    label { font-size: 12px; color: var(--text-soft); display:block; margin: 10px 0 6px; }
+    select, input[type="text"], input[type="url"], input[type="password"], textarea {
+      width:100%; color: var(--text); background: var(--surface); border:1px solid rgba(255,255,255,.1);
+      border-radius: 10px; padding: 8px 10px; outline: none;
+    }
+    select:focus, input:focus, textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--ring); }
+
+    .tags { display:flex; flex-wrap: wrap; gap: 8px; }
+    .tag { font-size: 12px; padding: 6px 10px; border-radius: 999px; color: var(--text-soft); background: var(--surface-2); border:1px solid rgba(255,255,255,.06); cursor:pointer; }
+    .tag.active { color:white; border-color: var(--accent-2); box-shadow: 0 0 0 3px var(--ring); }
+
+    /* Cards */
+    .cards { display:grid; grid-template-columns: repeat( auto-fill, minmax(280px, 1fr) ); gap: 18px; }
+    .card { position: relative; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
+      transition: transform .12s ease; }
+    .card:hover { transform: translateY(-2px); }
+    .card h4 { margin: 0 0 8px; font-size: 16px; letter-spacing:.2px; }
+    .meta { font-size: 12px; color: var(--muted); display:flex; gap: 10px; align-items:center; }
+    .links { margin-top: 10px; display:flex; flex-wrap: wrap; gap: 10px; }
+    .link {
+      display:inline-flex; align-items:center; gap: 8px; padding: 8px 10px; border:1px solid rgba(255,255,255,.08);
+      border-radius: 999px; font-size: 13px; color: var(--text);
+      background: radial-gradient(400px 120px at 0% 0%, rgba(46,159,255,.12), transparent 40%), var(--card);
+      text-decoration: none;
+    }
+    .link:hover { border-color: rgba(255,255,255,.18); }
+
+    .card .tag { background: rgba(255,255,255,.05); }
+    .card .actions { position:absolute; top: 10px; right: 10px; display:flex; gap: 8px; }
+
+    /* Notes / WYSIWYG */
+    .notes {
+      background: rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding: 12px; margin: 18px 0; box-shadow: var(--shadow);
+    }
+    .toolbar { display:flex; gap:8px; flex-wrap: wrap; padding-bottom: 8px; border-bottom:1px dashed rgba(255,255,255,.1); margin-bottom: 8px; }
+    .tool { padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.08); background: var(--surface); cursor:pointer; font-size: 13px; }
+    .editor { min-height: 120px; outline: none; }
+    .editor:empty:before{ content:attr(data-placeholder); color: var(--muted); }
+
+    /* Dialog/Modal */
+    dialog { border: 1px solid rgba(255,255,255,.12); border-radius: 16px; background: var(--surface);
+      color: var(--text); box-shadow: 0 30px 60px rgba(0,0,0,.5); width: 640px; max-width: calc(100% - 24px); }
+    dialog::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(2px); }
+    .modal-header { display:flex; align-items:center; justify-content: space-between; gap: 8px; padding: 8px 6px 0; }
+    .modal-actions { display:flex; gap: 8px; justify-content:flex-end; margin-top: 10px; }
+
+    .danger { color: white; background: linear-gradient(180deg, rgba(255,77,79,.25), rgba(255,77,79,.15)); border-color: rgba(255,77,79,.45); }
+    .success { color: white; background: linear-gradient(180deg, rgba(46, 204, 113,.25), rgba(46, 204, 113,.15)); border-color: rgba(46, 204, 113,.45); }
+    .accent { color: white; background: linear-gradient(180deg, rgba(46,159,255,.25), rgba(46,159,255,.12)); border-color: rgba(46,159,255,.45); }
+
+    /* Footer */
+    footer { text-align:center; color: var(--muted); font-size: 12px; margin: 16px 0 28px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); padding: 2px 6px; border-radius: 6px; }
+
+    @media (max-width: 880px){
+      .grid { grid-template-columns: 1fr; }
+      aside { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">Q</div>
+        <div>
+          <h1>QUT EdTech Links</h1>
+          <small>Vendor sites • Roadmaps • Status • Admin • Docs</small>
+        </div>
+      </div>
+      <div class="search" role="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15.5 15.5L21 21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/></svg>
+        <input id="q" type="text" placeholder="Filter by title, vendor, tag, category… ( / to focus )" />
+        <button id="clearFilters" class="chip" title="Clear filters">Clear</button>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" id="addLinkBtn" title="Add a link (A)">➕ Add Link</button>
+        <button class="btn" id="settingsBtn" title="Settings (S)">⚙️ Settings</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid" id="app">
+    <aside>
+      <h3>Filters</h3>
+      <label for="vendorFilter">Vendor</label>
+      <select id="vendorFilter"><option value="">All vendors</option></select>
+      <label for="categoryFilter">Category</label>
+      <select id="categoryFilter"><option value="">All categories</option></select>
+
+      <label>Quick tags</label>
+      <div class="tags" id="quickTags"></div>
+
+      <div class="notes" aria-label="Pinned Notes">
+        <div class="toolbar">
+          <button class="tool" data-cmd="bold"><b>B</b></button>
+          <button class="tool" data-cmd="italic"><i>I</i></button>
+          <button class="tool" data-cmd="underline"><u>U</u></button>
+          <button class="tool" data-cmd="insertUnorderedList">• List</button>
+          <button class="tool" data-cmd="insertOrderedList">1. List</button>
+          <button class="tool" id="makeLink">🔗 Link</button>
+          <span style="flex:1"></span>
+          <button class="tool success" id="saveNotes">Save</button>
+        </div>
+        <div id="notes" class="editor" contenteditable="true" data-placeholder="Pinned notes (rich text). Use this for quick reminders, common snippets, etc."></div>
+      </div>
+
+      <div style="display:grid; gap:8px; grid-template-columns: 1fr 1fr; margin-top:8px;">
+        <button class="btn" id="exportBtn">⬇️ Export</button>
+        <button class="btn" id="importBtn">⬆️ Import</button>
+      </div>
+    </aside>
+
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; margin: 4px 2px 14px;">
+        <div class="meta" id="stats"></div>
+        <div style="display:flex; gap:8px;">
+          <select id="sortSelect" title="Sort">
+            <option value="title">Sort: Title</option>
+            <option value="vendor">Sort: Vendor</option>
+            <option value="category">Sort: Category</option>
+            <option value="created">Sort: Recently added</option>
+            <option value="clicked">Sort: Most clicked</option>
+          </select>
+          <button class="btn" id="seedBtn" title="Load sample links">🌱 Sample</button>
+          <button class="btn" id="clearAllBtn" title="Clear all data">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="cards" id="cards"></div>
+    </section>
+  </main>
+
+  <!-- Add/Edit Link Modal -->
+  <dialog id="linkModal">
+    <form method="dialog">
+      <div class="modal-header">
+        <h3 id="linkModalTitle">Add Link</h3>
+        <button class="btn" onclick="document.getElementById('linkModal').close()">✖</button>
+      </div>
+      <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr; padding: 8px 6px 0;">
+        <div>
+          <label>Title</label>
+          <input id="fTitle" type="text" required />
+        </div>
+        <div>
+          <label>URL</label>
+          <input id="fUrl" type="url" placeholder="https://…" required />
+        </div>
+        <div>
+          <label>Vendor</label>
+          <input id="fVendor" type="text" placeholder="e.g., Canvas, Microsoft, Turnitin" />
+        </div>
+        <div>
+          <label>Category</label>
+          <input id="fCategory" type="text" placeholder="Roadmap, Status, Admin, Docs…" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label>Tags (comma‑separated)</label>
+          <input id="fTags" type="text" placeholder="e.g., roadmap, policy, ai" />
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label>Notes</label>
+          <textarea id="fNotes" rows="3" placeholder="Optional context shown on hover and in card"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn danger" id="deleteLinkBtn" type="button" style="display:none">Delete</button>
+        <span style="flex:1"></span>
+        <button class="btn" type="button" onclick="document.getElementById('linkModal').close()">Cancel</button>
+        <button class="btn success" id="saveLinkBtn" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Settings Modal -->
+  <dialog id="settingsModal">
+    <form method="dialog">
+      <div class="modal-header">
+        <h3>Settings & Sync</h3>
+        <button class="btn" onclick="document.getElementById('settingsModal').close()">✖</button>
+      </div>
+
+      <div style="display:grid; gap:14px; padding: 8px 6px 0;">
+        <fieldset style="border:1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px;">
+          <legend style="color:var(--muted);">Storage Mode</legend>
+          <label><input type="radio" name="storageMode" value="local"> Local (this device)</label>
+          <label><input type="radio" name="storageMode" value="gist"> GitHub Gist</label>
+          <label><input type="radio" name="storageMode" value="repo"> GitHub Repo File</label>
+        </fieldset>
+
+        <div id="gistSettings" style="display:none; border:1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px;">
+          <h4 style="margin:0 0 8px;">GitHub Gist</h4>
+          <label>Personal Access Token (scope: gist)</label>
+          <input id="ghTokenGist" type="password" placeholder="ghp_… (stored locally only)" />
+          <label>Gist ID (leave blank to create on first sync)</label>
+          <input id="gistId" type="text" placeholder="e.g., a1b2c3d4e5…" />
+          <label>Filename in Gist</label>
+          <input id="gistFile" type="text" value="qut-edtech-links.json" />
+          <div class="modal-actions">
+            <button class="btn accent" id="syncGistNow" type="button">⮕ Sync Now</button>
+          </div>
+        </div>
+
+        <div id="repoSettings" style="display:none; border:1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px;">
+          <h4 style="margin:0 0 8px;">GitHub Repo File</h4>
+          <label>Personal Access Token (scope: repo/public_repo)</label>
+          <input id="ghTokenRepo" type="password" placeholder="ghp_… (stored locally only)" />
+          <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
+            <div>
+              <label>Owner</label>
+              <input id="ghOwner" type="text" placeholder="github-username" />
+            </div>
+            <div>
+              <label>Repo</label>
+              <input id="ghRepo" type="text" placeholder="e.g., qut-edtech-home" />
+            </div>
+          </div>
+          <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr;">
+            <div>
+              <label>Branch</label>
+              <input id="ghBranch" type="text" value="gh-pages" />
+            </div>
+            <div>
+              <label>Path (JSON file)</label>
+              <input id="ghPath" type="text" value="data/qut-edtech-links.json" />
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn accent" id="syncRepoNow" type="button">⮕ Sync Now</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn" type="button" id="loadFromRemote">⬅️ Load from remote</button>
+          <button class="btn success" type="submit" id="saveSettings">Save Settings</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="importFileInput" accept="application/json" style="display:none" />
+
+  <footer>
+    <div>Made for dark mode. Tip: <span class="kbd">/</span> focuses search • <span class="kbd">A</span> add link • <span class="kbd">S</span> settings</div>
+  </footer>
+
+  <script>
+  // ===== Utilities =====
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const todayISO = () => new Date().toISOString();
+
+  function debounce(fn, ms=250){
+    let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+  }
+
+  function toSlug(s){ return (s||'').toLowerCase().trim(); }
+
+  function groupBy(arr, key){ return arr.reduce((m, it)=>{ const k = it[key]||''; (m[k] ||= []).push(it); return m; }, {}); }
+
+  // ===== Storage Manager (Local | GitHub Gist | GitHub Repo) =====
+  const STORAGE_KEY = 'qut-edtech-links-v1';
+  const SETTINGS_KEY = 'qut-edtech-settings-v1';
+
+  const Storage = {
+    async load(){
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { links: [], clicks: {}, createdAt: todayISO(), notes: '' };
+      try { return JSON.parse(raw); } catch { return { links: [], clicks: {}, createdAt: todayISO(), notes: '' }; }
+    },
+    async save(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); },
+
+    settings(){
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      const def = { mode: 'local', gist: { token:'', id:'', file:'qut-edtech-links.json' }, repo:{ token:'', owner:'', repo:'', branch:'gh-pages', path:'data/qut-edtech-links.json' } };
+      if (!raw) return def;
+      try { return Object.assign(def, JSON.parse(raw)); } catch { return def; }
+    },
+    saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); },
+
+    // --- GitHub helpers ---
+    async gistSave(settings, state){
+      if (!settings.gist.token) throw new Error('Missing GitHub token for Gist');
+      const token = settings.gist.token;
+      const body = settings.gist.id ? {
+        files: { [settings.gist.file]: { content: JSON.stringify(state, null, 2) } }
+      } : {
+        description: 'QUT EdTech Links dashboard data', public: false,
+        files: { [settings.gist.file]: { content: JSON.stringify(state, null, 2) } }
+      };
+      const url = settings.gist.id ? `https://api.github.com/gists/${settings.gist.id}` : 'https://api.github.com/gists';
+      const method = settings.gist.id ? 'PATCH' : 'POST';
+      const res = await fetch(url, { method, headers:{ 'Authorization': `token ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error('Gist save failed: ' + res.status);
+      const json = await res.json();
+      if (!settings.gist.id) { settings.gist.id = json.id; Storage.saveSettings(settings); }
+      return json.id;
+    },
+    async gistLoad(settings){
+      if (!settings.gist.token || !settings.gist.id) throw new Error('Provide token and Gist ID to load');
+      const res = await fetch(`https://api.github.com/gists/${settings.gist.id}`, { headers:{ 'Authorization': `token ${settings.gist.token}` } });
+      if (!res.ok) throw new Error('Gist load failed: ' + res.status);
+      const json = await res.json();
+      const file = json.files[settings.gist.file] || Object.values(json.files)[0];
+      return JSON.parse(file.content);
+    },
+
+    async repoSave(settings, state){
+      const { token } = settings.repo; if (!token) throw new Error('Missing GitHub token for Repo');
+      const { owner, repo, branch, path } = settings.repo;
+      const getUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+      // get current sha if exists
+      let sha = null; let exists = false;
+      const getRes = await fetch(getUrl, { headers: { 'Authorization': `token ${token}` } });
+      if (getRes.ok){ const j = await getRes.json(); sha = j.sha; exists = true; }
+      const putRes = await fetch(getUrl, { method:'PUT', headers:{ 'Authorization': `token ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({
+        message: exists ? 'Update links data' : 'Add links data',
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2)))),
+        branch, sha
+      }) });
+      if (!putRes.ok) throw new Error('Repo save failed: ' + putRes.status);
+      return true;
+    },
+    async repoLoad(settings){
+      const { token } = settings.repo; if (!token) throw new Error('Missing GitHub token');
+      const { owner, repo, branch, path } = settings.repo;
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+      const res = await fetch(url, { headers:{ 'Authorization': `token ${token}` } });
+      if (!res.ok) throw new Error('Repo load failed: ' + res.status);
+      const j = await res.json();
+      const content = decodeURIComponent(escape(atob(j.content)));
+      return JSON.parse(content);
+    }
+  };
+
+  // ===== App State =====
+  let STATE = await Storage.load();
+
+  // ===== Rendering =====
+  function render(){
+    // Cards
+    const q = toSlug($('#q').value);
+    const v = $('#vendorFilter').value;
+    const c = $('#categoryFilter').value;
+    const activeTags = $$('#quickTags .tag.active').map(t=>t.dataset.tag);
+
+    const filtered = STATE.links.filter(it=>{
+      const matchesQ = !q || [it.title, it.vendor, it.category, ...(it.tags||[])].join(' ').toLowerCase().includes(q);
+      const matchesV = !v || it.vendor === v;
+      const matchesC = !c || it.category === c;
+      const matchesTags = activeTags.length===0 || activeTags.every(t => (it.tags||[]).includes(t));
+      return matchesQ && matchesV && matchesC && matchesTags;
+    });
+
+    // Sort
+    const sort = $('#sortSelect').value;
+    filtered.sort((a,b)=>{
+      if (sort==='title') return a.title.localeCompare(b.title);
+      if (sort==='vendor') return (a.vendor||'').localeCompare(b.vendor||'');
+      if (sort==='category') return (a.category||'').localeCompare(b.category||'');
+      if (sort==='created') return (b.createdAt||'').localeCompare(a.createdAt||'');
+      if (sort==='clicked') return ( (STATE.clicks[b.id]||0) - (STATE.clicks[a.id]||0) );
+      return 0;
+    });
+
+    $('#stats').textContent = `${filtered.length} shown / ${STATE.links.length} total`;
+
+    const cards = filtered.map(it => cardHTML(it)).join('');
+    $('#cards').innerHTML = cards || `<div class="meta">No links yet. Click <b>➕ Add Link</b> or load <b>🌱 Sample</b>.</div>`;
+
+    // Filters (options)
+    const vendors = [...new Set(STATE.links.map(l=>l.vendor).filter(Boolean))].sort();
+    $('#vendorFilter').innerHTML = '<option value="">All vendors</option>' + vendors.map(v=>`<option ${v===$('#vendorFilter').value?'selected':''}>${v}</option>`).join('');
+    const categories = [...new Set(STATE.links.map(l=>l.category).filter(Boolean))].sort();
+    $('#categoryFilter').innerHTML = '<option value="">All categories</option>' + categories.map(v=>`<option ${v===$('#categoryFilter').value?'selected':''}>${v}</option>`).join('');
+
+    // Quick tags from top 12 tags
+    const tagCounts = new Map();
+    STATE.links.forEach(l=> (l.tags||[]).forEach(t=> tagCounts.set(t, (tagCounts.get(t)||0)+1)) );
+    const topTags = [...tagCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([t])=>t);
+    $('#quickTags').innerHTML = topTags.map(t=>`<span class="tag${activeTags.includes(t)?' active':''}" data-tag="${t}">${t}</span>`).join('') || '<span class="meta">Tags appear as you add links.</span>';
+
+    // Notes
+    $('#notes').innerHTML = STATE.notes || '';
+  }
+
+  function cardHTML(it){
+    const clicks = STATE.clicks[it.id]||0;
+    const tags = (it.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(' ');
+    const tooltip = it.notes ? `title="${it.notes.replace(/"/g,'&quot;')}"` : '';
+    const favicon = `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(it.url)}`; // fine for static dashboards
+    return `<article class="card" ${tooltip}>
+      <div class="actions">
+        <button class="btn" onclick="editLink('${it.id}')">✏️</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <img src="${favicon}" alt="" width="20" height="20" style="border-radius:6px;" />
+        <h4>${escapeHTML(it.title)}</h4>
+      </div>
+      <div class="meta">
+        <span>${escapeHTML(it.vendor||'')}</span>
+        <span>•</span>
+        <span>${escapeHTML(it.category||'')}</span>
+        <span>•</span>
+        <span>Clicks: ${clicks}</span>
+      </div>
+      <div class="links">
+        <a class="link" href="${it.url}" target="_blank" rel="noopener" onclick="trackClick('${it.id}')">Open ↗</a>
+        ${tags}
+      </div>
+    </article>`;
+  }
+
+  function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+  // ===== Events =====
+  $('#q').addEventListener('input', debounce(render, 100));
+  $('#vendorFilter').addEventListener('change', render);
+  $('#categoryFilter').addEventListener('change', render);
+  $('#sortSelect').addEventListener('change', render);
+  $('#clearFilters').addEventListener('click', ()=>{ $('#q').value=''; $('#vendorFilter').value=''; $('#categoryFilter').value=''; $$('#quickTags .tag').forEach(t=>t.classList.remove('active')); render(); });
+
+  $('#quickTags').addEventListener('click', (e)=>{
+    const t = e.target.closest('.tag'); if (!t) return; t.classList.toggle('active'); render();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === '/' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA') { e.preventDefault(); $('#q').focus(); }
+    if (e.key.toLowerCase() === 'a' && !e.metaKey && !e.ctrlKey && !e.altKey){ e.preventDefault(); openAddModal(); }
+    if (e.key.toLowerCase() === 's' && !e.metaKey && !e.ctrlKey && !e.altKey){ e.preventDefault(); openSettings(); }
+  });
+
+  // Notes toolbar
+  $$('.tool[data-cmd]').forEach(btn=> btn.addEventListener('click', ()=> document.execCommand(btn.dataset.cmd, false, null) ));
+  $('#makeLink').addEventListener('click', ()=>{
+    const url = prompt('URL for link:'); if (!url) return; document.execCommand('createLink', false, url);
+  });
+  $('#saveNotes').addEventListener('click', ()=>{ STATE.notes = $('#notes').innerHTML; Storage.save(STATE); });
+
+  // Import/Export
+  $('#exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'qut-edtech-links-backup.json'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  $('#importBtn').addEventListener('click', ()=> $('#importFileInput').click());
+  $('#importFileInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if (!file) return; const text = await file.text();
+    try { const json = JSON.parse(text); STATE = json; await Storage.save(STATE); render(); alert('Imported.'); } catch { alert('Invalid JSON'); }
+  });
+
+  // Sample & Clear
+  $('#seedBtn').addEventListener('click', ()=>{ seed(); });
+  $('#clearAllBtn').addEventListener('click', ()=>{ if (confirm('Clear all links and notes?')) { STATE = { links:[], clicks:{}, createdAt: todayISO(), notes:'' }; Storage.save(STATE); render(); } });
+
+  // Add/Edit Link
+  $('#addLinkBtn').addEventListener('click', openAddModal);
+  function openAddModal(){ $('#linkModalTitle').textContent='Add Link'; $('#deleteLinkBtn').style.display='none'; fillForm(); $('#linkModal').showModal(); }
+  function fillForm(data={}){
+    $('#fTitle').value = data.title||'';
+    $('#fUrl').value = data.url||'';
+    $('#fVendor').value = data.vendor||'';
+    $('#fCategory').value = data.category||'';
+    $('#fTags').value = (data.tags||[]).join(', ');
+    $('#fNotes').value = data.notes||'';
+    $('#saveLinkBtn').dataset.id = data.id || '';
+  }
+
+  window.editLink = function(id){
+    const it = STATE.links.find(x=>x.id===id); if (!it) return;
+    $('#linkModalTitle').textContent='Edit Link'; $('#deleteLinkBtn').style.display='inline-flex';
+    fillForm(it); $('#linkModal').showModal();
+    $('#deleteLinkBtn').onclick = ()=>{ if (confirm('Delete this link?')) { STATE.links = STATE.links.filter(x=>x.id!==id); Storage.save(STATE); $('#linkModal').close(); render(); } };
+  }
+
+  $('#linkModal form').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const id = $('#saveLinkBtn').dataset.id || uid();
+    const item = {
+      id,
+      title: $('#fTitle').value.trim(),
+      url: $('#fUrl').value.trim(),
+      vendor: $('#fVendor').value.trim(),
+      category: $('#fCategory').value.trim(),
+      tags: $('#fTags').value.split(',').map(s=>s.trim()).filter(Boolean),
+      notes: $('#fNotes').value.trim(),
+      createdAt: $('#saveLinkBtn').dataset.id ? (STATE.links.find(x=>x.id===id)?.createdAt || todayISO()) : todayISO()
+    };
+    const idx = STATE.links.findIndex(x=>x.id===id);
+    if (idx>=0) STATE.links[idx]=item; else STATE.links.push(item);
+    Storage.save(STATE); $('#linkModal').close(); render();
+  });
+
+  window.trackClick = function(id){ STATE.clicks[id] = (STATE.clicks[id]||0)+1; Storage.save(STATE); };
+
+  // Settings & Sync
+  $('#settingsBtn').addEventListener('click', openSettings);
+  function openSettings(){
+    const s = Storage.settings();
+    $$('input[name="storageMode"]').forEach(r=> r.checked = r.value===s.mode);
+    $('#gistSettings').style.display = s.mode==='gist' ? 'block' : 'none';
+    $('#repoSettings').style.display = s.mode==='repo' ? 'block' : 'none';
+
+    // pre-fill
+    $('#ghTokenGist').value = s.gist.token||'';
+    $('#gistId').value = s.gist.id||'';
+    $('#gistFile').value = s.gist.file||'qut-edtech-links.json';
+
+    $('#ghTokenRepo').value = s.repo.token||'';
+    $('#ghOwner').value = s.repo.owner||'';
+    $('#ghRepo').value = s.repo.repo||'';
+    $('#ghBranch').value = s.repo.branch||'gh-pages';
+    $('#ghPath').value = s.repo.path||'data/qut-edtech-links.json';
+
+    $('#settingsModal').showModal();
+  }
+
+  $('#settingsModal').addEventListener('change', (e)=>{
+    if (e.target.name === 'storageMode'){
+      const s = Storage.settings(); s.mode = e.target.value; Storage.saveSettings(s);
+      $('#gistSettings').style.display = s.mode==='gist' ? 'block' : 'none';
+      $('#repoSettings').style.display = s.mode==='repo' ? 'block' : 'none';
+    }
+  });
+
+  $('#saveSettings').addEventListener('click', (e)=>{
+    e.preventDefault();
+    const s = Storage.settings();
+    s.mode = $$('input[name="storageMode"]').find(r=>r.checked)?.value || 'local';
+    s.gist = { token: $('#ghTokenGist').value.trim(), id: $('#gistId').value.trim(), file: $('#gistFile').value.trim()||'qut-edtech-links.json' };
+    s.repo = { token: $('#ghTokenRepo').value.trim(), owner: $('#ghOwner').value.trim(), repo: $('#ghRepo').value.trim(), branch: $('#ghBranch').value.trim()||'gh-pages', path: $('#ghPath').value.trim()||'data/qut-edtech-links.json' };
+    Storage.saveSettings(s);
+    $('#settingsModal').close();
+  });
+
+  $('#syncGistNow').addEventListener('click', async ()=>{
+    const s = Storage.settings(); s.gist.token = $('#ghTokenGist').value.trim(); s.gist.id = $('#gistId').value.trim(); s.gist.file = $('#gistFile').value.trim(); Storage.saveSettings(s);
+    try { const id = await Storage.gistSave(s, STATE); if (!s.gist.id) { $('#gistId').value = id; alert('Gist created and synced. ID stored locally.'); } else { alert('Gist updated.'); } }
+    catch (err){ alert(err.message); }
+  });
+
+  $('#syncRepoNow').addEventListener('click', async ()=>{
+    const s = Storage.settings(); s.repo.token = $('#ghTokenRepo').value.trim(); s.repo.owner=$('#ghOwner').value.trim(); s.repo.repo=$('#ghRepo').value.trim(); s.repo.branch=$('#ghBranch').value.trim(); s.repo.path=$('#ghPath').value.trim(); Storage.saveSettings(s);
+    try { await Storage.repoSave(s, STATE); alert('Repo file updated.'); } catch(err){ alert(err.message); }
+  });
+
+  $('#loadFromRemote').addEventListener('click', async ()=>{
+    const s = Storage.settings();
+    try {
+      let data;
+      if (s.mode==='gist') { s.gist.token = $('#ghTokenGist').value.trim(); s.gist.id = $('#gistId').value.trim(); s.gist.file = $('#gistFile').value.trim(); Storage.saveSettings(s); data = await Storage.gistLoad(s); }
+      else if (s.mode==='repo') { s.repo.token = $('#ghTokenRepo').value.trim(); s.repo.owner=$('#ghOwner').value.trim(); s.repo.repo=$('#ghRepo').value.trim(); s.repo.branch=$('#ghBranch').value.trim(); s.repo.path=$('#ghPath').value.trim(); Storage.saveSettings(s); data = await Storage.repoLoad(s); }
+      else { alert('Switch mode to Gist or Repo first.'); return; }
+      STATE = data; await Storage.save(STATE); render(); alert('Loaded from remote.');
+    } catch(err){ alert(err.message); }
+  });
+
+  // Seed data
+  function seed(){
+    if (!confirm('Load sample vendor links? (appends)')) return;
+    const samples = [
+      { title:'Canvas Admin', url:'https://qut.instructure.com/accounts/1', vendor:'Canvas', category:'Admin', tags:['canvas','admin'], notes:'Institutional settings' },
+      { title:'Canvas Roadmap', url:'https://community.canvaslms.com/t5/The-Product-Blog/bg-p/product', vendor:'Canvas', category:'Roadmap', tags:['canvas','roadmap'] },
+      { title:'Canvas Status', url:'https://status.instructure.com/', vendor:'Canvas', category:'Status', tags:['status'] },
+      { title:'Microsoft 365 Admin', url:'https://admin.microsoft.com/', vendor:'Microsoft', category:'Admin', tags:['m365','admin'] },
+      { title:'Microsoft 365 Roadmap', url:'https://www.microsoft.com/microsoft-365/roadmap', vendor:'Microsoft', category:'Roadmap', tags:['roadmap','m365'] },
+      { title:'Azure Status', url:'https://status.azure.com/', vendor:'Microsoft', category:'Status', tags:['status','azure'] },
+      { title:'Turnitin Admin', url:'https://www.turnitin.com/', vendor:'Turnitin', category:'Admin', tags:['turnitin'] },
+      { title:'Turnitin Status', url:'https://turnitin.statuspage.io/', vendor:'Turnitin', category:'Status', tags:['status'] },
+      { title:'Zoom Admin', url:'https://admin.zoom.us/', vendor:'Zoom', category:'Admin', tags:['zoom','admin'] },
+      { title:'Zoom Status', url:'https://status.zoom.us/', vendor:'Zoom', category:'Status', tags:['status'] },
+      { title:'QUT ITS Outages', url:'https://www.ithelp.qut.edu.au/announcements', vendor:'QUT', category:'Status', tags:['qut','its'] },
+      { title:'GitHub Pages – Docs', url:'https://docs.github.com/pages', vendor:'GitHub', category:'Docs', tags:['github','pages'] },
+    ];
+    samples.forEach(s=> STATE.links.push({ id: uid(), createdAt: todayISO(), ...s }));
+    Storage.save(STATE); render();
+  }
+
+  // Initial render
+  render();
+  </script>
+</body>
+</html>
